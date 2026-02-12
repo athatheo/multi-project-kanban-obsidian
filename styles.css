@@ -1,0 +1,364 @@
+/* ===== Board Container ===== */
+.kanban-board-container {
+	padding: 16px;
+	overflow: auto;
+	height: 100%;
+}
+
+.kanban-board {
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+	min-height: 100%;
+}
+
+/* ===== Add Project Button ===== */
+.kanban-add-project-btn {
+	align-self: flex-start;
+	padding: 8px 16px;
+	border-radius: 6px;
+	border: 1px dashed var(--interactive-accent);
+	background: transparent;
+	color: var(--interactive-accent);
+	cursor: pointer;
+	font-size: 14px;
+	transition: background 0.15s;
+}
+
+.kanban-add-project-btn:hover {
+	background: var(--interactive-accent-hover);
+	color: var(--text-on-accent);
+}
+
+/* ===== Project ===== */
+.kanban-project {
+	border-left: 4px solid #4a90d9;
+	border-radius: 8px;
+	background: var(--background-secondary);
+	overflow: hidden;
+}
+
+/* ===== Project Header ===== */
+.kanban-project-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 10px 14px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.kanban-chevron {
+	cursor: pointer;
+	font-size: 12px;
+	width: 20px;
+	text-align: center;
+	flex-shrink: 0;
+	user-select: none;
+	opacity: 0.7;
+}
+
+.kanban-chevron:hover {
+	opacity: 1;
+}
+
+.kanban-project-name {
+	font-weight: 600;
+	font-size: 15px;
+	flex: 1;
+	cursor: pointer;
+	padding: 2px 4px;
+	border-radius: 4px;
+}
+
+.kanban-project-name:hover {
+	background: var(--background-modifier-hover);
+}
+
+.kanban-color-swatch {
+	width: 22px;
+	height: 22px;
+	border-radius: 50%;
+	cursor: pointer;
+	flex-shrink: 0;
+	position: relative;
+	border: 2px solid var(--background-modifier-border);
+}
+
+.kanban-color-swatch input[type="color"] {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	opacity: 0;
+	cursor: pointer;
+	border: none;
+	padding: 0;
+}
+
+.kanban-delete-btn {
+	cursor: pointer;
+	font-size: 18px;
+	opacity: 0.4;
+	flex-shrink: 0;
+	width: 24px;
+	text-align: center;
+	line-height: 24px;
+	border-radius: 4px;
+}
+
+.kanban-delete-btn:hover {
+	opacity: 1;
+	background: var(--background-modifier-error);
+	color: var(--text-on-accent);
+}
+
+/* ===== Columns Container ===== */
+.kanban-columns {
+	display: flex;
+	gap: 12px;
+	padding: 14px;
+	overflow-x: auto;
+	align-items: flex-start;
+}
+
+/* ===== Column ===== */
+.kanban-column {
+	min-width: 220px;
+	max-width: 280px;
+	width: 250px;
+	background: var(--background-primary);
+	border-radius: 8px;
+	border: 1px solid var(--background-modifier-border);
+	display: flex;
+	flex-direction: column;
+	flex-shrink: 0;
+}
+
+.kanban-column.dragging-column {
+	opacity: 0.4;
+}
+
+/* ===== Column Header ===== */
+.kanban-column-header {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 8px 10px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.kanban-column-grip {
+	cursor: grab;
+	opacity: 0.4;
+	font-size: 16px;
+	user-select: none;
+	flex-shrink: 0;
+}
+
+.kanban-column-grip:hover {
+	opacity: 0.8;
+}
+
+.kanban-column-grip:active {
+	cursor: grabbing;
+}
+
+.kanban-column-name {
+	flex: 1;
+	font-weight: 600;
+	font-size: 13px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	cursor: pointer;
+	padding: 2px 4px;
+	border-radius: 4px;
+}
+
+.kanban-column-name:hover {
+	background: var(--background-modifier-hover);
+}
+
+.kanban-column-count {
+	font-size: 11px;
+	background: var(--background-modifier-border);
+	padding: 1px 6px;
+	border-radius: 10px;
+	flex-shrink: 0;
+	opacity: 0.7;
+}
+
+.kanban-column-delete {
+	cursor: pointer;
+	font-size: 16px;
+	opacity: 0.3;
+	flex-shrink: 0;
+	width: 20px;
+	text-align: center;
+	border-radius: 4px;
+}
+
+.kanban-column-delete:hover {
+	opacity: 1;
+	background: var(--background-modifier-error);
+	color: var(--text-on-accent);
+}
+
+/* ===== Cards Container ===== */
+.kanban-cards {
+	flex: 1;
+	padding: 8px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	min-height: 40px;
+}
+
+/* ===== Card ===== */
+.kanban-card {
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	padding: 8px 10px;
+	cursor: grab;
+	display: flex;
+	align-items: flex-start;
+	gap: 6px;
+	transition: box-shadow 0.15s, border-color 0.15s;
+}
+
+.kanban-card:hover {
+	border-color: var(--interactive-accent);
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.kanban-card.dragging {
+	opacity: 0.3;
+}
+
+.kanban-card:active {
+	cursor: grabbing;
+}
+
+.kanban-card-title {
+	flex: 1;
+	font-size: 13px;
+	line-height: 1.4;
+	word-break: break-word;
+	cursor: pointer;
+	padding: 1px 2px;
+	border-radius: 3px;
+}
+
+.kanban-card-title:hover {
+	background: var(--background-modifier-hover);
+}
+
+.kanban-card-delete {
+	cursor: pointer;
+	font-size: 14px;
+	opacity: 0;
+	flex-shrink: 0;
+	width: 18px;
+	text-align: center;
+	line-height: 18px;
+	border-radius: 3px;
+	transition: opacity 0.1s;
+}
+
+.kanban-card:hover .kanban-card-delete {
+	opacity: 0.5;
+}
+
+.kanban-card-delete:hover {
+	opacity: 1 !important;
+	background: var(--background-modifier-error);
+	color: var(--text-on-accent);
+}
+
+/* ===== Add Card / Add Column Buttons ===== */
+.kanban-add-card {
+	padding: 4px 8px 8px;
+}
+
+.kanban-add-card-btn {
+	width: 100%;
+	padding: 4px;
+	border-radius: 4px;
+	border: 1px dashed var(--background-modifier-border);
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
+	font-size: 16px;
+	transition: background 0.15s, color 0.15s;
+}
+
+.kanban-add-card-btn:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+	border-color: var(--interactive-accent);
+}
+
+.kanban-add-column {
+	min-width: 220px;
+	display: flex;
+	align-items: flex-start;
+	flex-shrink: 0;
+}
+
+.kanban-add-column-btn {
+	padding: 8px 14px;
+	border-radius: 6px;
+	border: 1px dashed var(--background-modifier-border);
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
+	font-size: 13px;
+	white-space: nowrap;
+	transition: background 0.15s, color 0.15s;
+}
+
+.kanban-add-column-btn:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+	border-color: var(--interactive-accent);
+}
+
+/* ===== Inline Input ===== */
+.kanban-inline-input {
+	width: 100%;
+	padding: 4px 6px;
+	border: 1px solid var(--interactive-accent);
+	border-radius: 4px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+	font-size: inherit;
+	font-family: inherit;
+	outline: none;
+}
+
+/* ===== Drag Placeholders ===== */
+.kanban-placeholder {
+	border: 2px dashed var(--interactive-accent);
+	border-radius: 6px;
+	height: 40px;
+	background: var(--interactive-accent);
+	opacity: 0.1;
+	flex-shrink: 0;
+}
+
+.kanban-column-placeholder {
+	min-width: 220px;
+	width: 250px;
+	border: 2px dashed var(--interactive-accent);
+	border-radius: 8px;
+	min-height: 100px;
+	background: var(--interactive-accent);
+	opacity: 0.1;
+	flex-shrink: 0;
+}
+
+/* ===== Empty State ===== */
+.kanban-board:has(> :only-child) .kanban-add-project-btn {
+	margin-top: 40px;
+}

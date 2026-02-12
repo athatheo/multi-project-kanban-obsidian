@@ -1,0 +1,9 @@
+{
+	"id": "multi-project-kanban",
+	"name": "Multi-Project Kanban Board",
+	"version": "1.0.0",
+	"minAppVersion": "1.0.0",
+	"description": "Manage multiple projects on a single kanban board with collapsible rows, custom columns, and draggable cards.",
+	"author": "athatheo",
+	"isDesktopOnly": false
+}
