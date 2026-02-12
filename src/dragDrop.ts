@@ -66,8 +66,7 @@ export function setupColumnDrag(
 		// Show column placeholder
 		columnsContainer.querySelectorAll(".kanban-column-placeholder").forEach(el => el.remove());
 
-		const placeholder = document.createElement("div");
-		placeholder.className = "kanban-column-placeholder";
+		const placeholder = createDiv({ cls: "kanban-column-placeholder" });
 
 		const box = columnEl.getBoundingClientRect();
 		const midX = box.left + box.width / 2;

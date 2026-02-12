@@ -42,7 +42,7 @@ function renderProject(boardEl: HTMLElement, project: Project, callbacks: Render
 
 	// Collapse chevron
 	const chevron = headerEl.createDiv({ cls: "kanban-chevron" });
-	chevron.innerHTML = project.collapsed ? "&#9654;" : "&#9660;";
+	chevron.textContent = project.collapsed ? "\u25B6" : "\u25BC";
 	chevron.addEventListener("click", () => {
 		callbacks.onDataChanged(updateProject(data, project.id, { collapsed: !project.collapsed }));
 	});
@@ -199,8 +199,7 @@ function setupCardDropZone(cardsEl: HTMLElement, projectId: string, columnId: st
 		cardsEl.querySelectorAll(".kanban-placeholder").forEach(el => el.remove());
 
 		// Calculate insertion position
-		const placeholder = document.createElement("div");
-		placeholder.className = "kanban-placeholder";
+		const placeholder = createDiv({ cls: "kanban-placeholder" });
 
 		const afterElement = getDragAfterElement(cardsEl, e.clientY);
 		if (afterElement) {
@@ -264,10 +263,8 @@ function getDragAfterElement(container: HTMLElement, y: number): Element | null 
 }
 
 function startInlineEdit(el: HTMLElement, currentValue: string, onSave: (value: string) => void) {
-	const input = document.createElement("input");
-	input.type = "text";
+	const input = createEl("input", { type: "text", cls: "kanban-inline-input" });
 	input.value = currentValue;
-	input.className = "kanban-inline-input";
 
 	const originalText = el.textContent;
 	el.textContent = "";
@@ -299,10 +296,7 @@ function startInlineEdit(el: HTMLElement, currentValue: string, onSave: (value: 
 }
 
 function startInlineInput(anchor: HTMLElement, placeholder: string, onSave: (value: string) => void) {
-	const input = document.createElement("input");
-	input.type = "text";
-	input.placeholder = placeholder;
-	input.className = "kanban-inline-input";
+	const input = createEl("input", { type: "text", cls: "kanban-inline-input", placeholder });
 
 	const parent = anchor.parentElement;
 	if (!parent) return;
