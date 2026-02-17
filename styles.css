@@ -276,6 +276,29 @@
 	color: var(--text-on-accent);
 }
 
+.kanban-card-done {
+	cursor: pointer;
+	font-size: 14px;
+	opacity: 0;
+	flex-shrink: 0;
+	width: 18px;
+	text-align: center;
+	line-height: 18px;
+	border-radius: 3px;
+	transition: opacity 0.1s;
+	color: var(--text-muted);
+}
+
+.kanban-card:hover .kanban-card-done {
+	opacity: 0.5;
+}
+
+.kanban-card-done:hover {
+	opacity: 1 !important;
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
 /* ===== Add Card / Add Column Buttons ===== */
 .kanban-add-card {
 	padding: 4px 8px 8px;

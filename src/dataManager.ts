@@ -4,6 +4,26 @@ import { generateId, findCardLocation, findColumnLocation } from "./utils";
 
 const FRONTMATTER_REGEX = /^---\n([\s\S]*?)\n---/;
 
+export const DONE_COLUMN_NAME = "Done";
+
+export function isDoneColumn(column: Column): boolean {
+	return column.name === DONE_COLUMN_NAME;
+}
+
+export function ensureDoneColumns(data: BoardData): BoardData {
+	let changed = false;
+	const projects = data.projects.map(p => {
+		const hasDone = p.columns.some(c => isDoneColumn(c));
+		if (hasDone) return p;
+		changed = true;
+		return {
+			...p,
+			columns: [...p.columns, { id: generateId("col"), name: DONE_COLUMN_NAME, cards: [] }],
+		};
+	});
+	return changed ? { ...data, projects } : data;
+}
+
 export function parseBoardData(fileContent: string): BoardData | null {
 	const match = fileContent.match(FRONTMATTER_REGEX);
 	if (!match) return null;
@@ -62,7 +82,7 @@ export function addProject(data: BoardData, name: string): BoardData {
 		name,
 		color: "#4a90d9",
 		collapsed: false,
-		columns: [],
+		columns: [{ id: generateId("col"), name: DONE_COLUMN_NAME, cards: [] }],
 	};
 	return {
 		...data,
@@ -94,15 +114,24 @@ export function addColumn(data: BoardData, projectId: string, name: string): Boa
 	};
 	return {
 		...data,
-		projects: data.projects.map(p =>
-			p.id === projectId
-				? { ...p, columns: [...p.columns, column] }
-				: p
-		),
+		projects: data.projects.map(p => {
+			if (p.id !== projectId) return p;
+			const doneIndex = p.columns.findIndex(c => isDoneColumn(c));
+			if (doneIndex === -1) {
+				return { ...p, columns: [...p.columns, column] };
+			}
+			const newColumns = [...p.columns];
+			newColumns.splice(doneIndex, 0, column);
+			return { ...p, columns: newColumns };
+		}),
 	};
 }
 
 export function removeColumn(data: BoardData, projectId: string, columnId: string): BoardData {
+	const project = data.projects.find(p => p.id === projectId);
+	const column = project?.columns.find(c => c.id === columnId);
+	if (column && isDoneColumn(column)) return data;
+
 	return {
 		...data,
 		projects: data.projects.map(p =>
@@ -114,6 +143,10 @@ export function removeColumn(data: BoardData, projectId: string, columnId: strin
 }
 
 export function updateColumn(data: BoardData, projectId: string, columnId: string, updates: Partial<Pick<Column, "name">>): BoardData {
+	const project = data.projects.find(p => p.id === projectId);
+	const column = project?.columns.find(c => c.id === columnId);
+	if (column && isDoneColumn(column)) return data;
+
 	return {
 		...data,
 		projects: data.projects.map(p =>
@@ -228,12 +261,18 @@ export function moveColumn(data: BoardData, columnId: string, targetProjectId: s
 
 	const column = location.project.columns[location.columnIndex];
 
+	// Prevent moving the Done column
+	if (isDoneColumn(column)) return data;
+
 	return {
 		...data,
 		projects: data.projects.map(p => {
 			if (p.id !== targetProjectId) return p;
 			const newColumns = p.columns.filter(c => c.id !== columnId);
-			const insertAt = Math.min(targetIndex, newColumns.length);
+			// Clamp target index to stay before the Done column
+			const doneIndex = newColumns.findIndex(c => isDoneColumn(c));
+			const maxIndex = doneIndex !== -1 ? doneIndex : newColumns.length;
+			const insertAt = Math.min(targetIndex, maxIndex);
 			newColumns.splice(insertAt, 0, column);
 			return { ...p, columns: newColumns };
 		}),

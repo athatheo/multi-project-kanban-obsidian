@@ -3,6 +3,7 @@ import {
 	addProject, removeProject, updateProject,
 	addColumn, removeColumn, updateColumn,
 	addCard, removeCard, updateCard, moveCard,
+	isDoneColumn, DONE_COLUMN_NAME,
 } from "./dataManager";
 import { setupCardDrag, setupColumnDrag } from "./dragDrop";
 
@@ -102,6 +103,7 @@ function renderProject(boardEl: HTMLElement, project: Project, callbacks: Render
 
 function renderColumn(columnsEl: HTMLElement, project: Project, column: Column, callbacks: RenderCallbacks) {
 	const data = callbacks.getData();
+	const isDone = isDoneColumn(column);
 	const columnEl = columnsEl.createDiv({ cls: "kanban-column" });
 	columnEl.setAttribute("data-column-id", column.id);
 	columnEl.setAttribute("data-project-id", project.id);
@@ -109,29 +111,37 @@ function renderColumn(columnsEl: HTMLElement, project: Project, column: Column, 
 	// Column header
 	const headerEl = columnEl.createDiv({ cls: "kanban-column-header" });
 
-	// Drag grip for column reordering
-	const grip = headerEl.createDiv({ cls: "kanban-column-grip", text: "\u2801" });
-	setupColumnDrag(grip, columnEl, project.id, column.id, callbacks);
+	// Drag grip for column reordering (skip for Done column)
+	if (!isDone) {
+		const grip = headerEl.createDiv({ cls: "kanban-column-grip", text: "\u2801" });
+		setupColumnDrag(grip, columnEl, project.id, column.id, callbacks);
+	}
 
-	// Column name (click to edit)
+	// Column name (click to edit, except Done column)
 	const nameEl = headerEl.createDiv({ cls: "kanban-column-name", text: column.name });
-	nameEl.addEventListener("click", () => {
-		startInlineEdit(nameEl, column.name, (newName) => {
-			if (newName.trim() && newName.trim() !== column.name) {
-				callbacks.onDataChanged(updateColumn(data, project.id, column.id, { name: newName.trim() }));
-			}
+	if (isDone) {
+		nameEl.style.cursor = "default";
+	} else {
+		nameEl.addEventListener("click", () => {
+			startInlineEdit(nameEl, column.name, (newName) => {
+				if (newName.trim() && newName.trim() !== column.name) {
+					callbacks.onDataChanged(updateColumn(data, project.id, column.id, { name: newName.trim() }));
+				}
+			});
 		});
-	});
+	}
 
 	// Column card count
 	headerEl.createDiv({ cls: "kanban-column-count", text: `${column.cards.length}` });
 
-	// Delete column button
-	const deleteBtn = headerEl.createDiv({ cls: "kanban-column-delete", text: "\u00d7" });
-	deleteBtn.setAttribute("aria-label", "Delete column");
-	deleteBtn.addEventListener("click", () => {
-		callbacks.onDataChanged(removeColumn(data, project.id, column.id));
-	});
+	// Delete column button (skip for Done column)
+	if (!isDone) {
+		const deleteBtn = headerEl.createDiv({ cls: "kanban-column-delete", text: "\u00d7" });
+		deleteBtn.setAttribute("aria-label", "Delete column");
+		deleteBtn.addEventListener("click", () => {
+			callbacks.onDataChanged(removeColumn(data, project.id, column.id));
+		});
+	}
 
 	// Cards list
 	const cardsEl = columnEl.createDiv({ cls: "kanban-cards" });
@@ -177,6 +187,23 @@ function renderCard(cardsEl: HTMLElement, project: Project, column: Column, card
 			}
 		});
 	});
+
+	// Move to Done button (only for non-Done columns)
+	if (!isDoneColumn(column)) {
+		const doneBtn = cardEl.createDiv({ cls: "kanban-card-done", text: "\u2713" });
+		doneBtn.setAttribute("aria-label", "Move to Done");
+		doneBtn.addEventListener("click", (e) => {
+			e.stopPropagation();
+			const doneCol = project.columns.find(c => isDoneColumn(c));
+			if (!doneCol) return;
+			// Strip any existing [...] prefix, then prepend [ColumnName]
+			const stripped = card.title.replace(/^\[.*?\]\s*/, "");
+			const newTitle = `[${column.name}] ${stripped}`;
+			let newData = updateCard(data, card.id, { title: newTitle });
+			newData = moveCard(newData, card.id, project.id, doneCol.id, doneCol.cards.length);
+			callbacks.onDataChanged(newData);
+		});
+	}
 
 	// Delete card button
 	const deleteBtn = cardEl.createDiv({ cls: "kanban-card-delete", text: "\u00d7" });

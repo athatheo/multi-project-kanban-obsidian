@@ -1,6 +1,6 @@
 import { TextFileView, WorkspaceLeaf } from "obsidian";
 import { BoardData } from "./types";
-import { parseBoardData, serializeBoardData, createEmptyBoardData } from "./dataManager";
+import { parseBoardData, serializeBoardData, createEmptyBoardData, ensureDoneColumns } from "./dataManager";
 import { renderBoard } from "./renderer";
 
 export const VIEW_TYPE_KANBAN = "kanban-board-view";
@@ -32,7 +32,11 @@ export class KanbanBoardView extends TextFileView {
 	setViewData(data: string, clear: boolean): void {
 		const parsed = parseBoardData(data);
 		if (parsed) {
-			this.boardData = parsed;
+			const migrated = ensureDoneColumns(parsed);
+			this.boardData = migrated;
+			if (migrated !== parsed) {
+				this.requestSave();
+			}
 		} else {
 			this.boardData = createEmptyBoardData();
 		}
