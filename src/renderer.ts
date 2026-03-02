@@ -5,7 +5,7 @@ import {
 	addCard, removeCard, updateCard, moveCard,
 	isDoneColumn, DONE_COLUMN_NAME,
 } from "./dataManager";
-import { setupCardDrag, setupColumnDrag } from "./dragDrop";
+import { setupCardDrag, setupColumnDrag, setupColumnDropZone, isColumnDragActive } from "./dragDrop";
 
 export function renderBoard(container: HTMLElement, callbacks: RenderCallbacks) {
 	const data = callbacks.getData();
@@ -85,6 +85,8 @@ function renderProject(boardEl: HTMLElement, project: Project, callbacks: Render
 			renderColumn(columnsEl, project, column, callbacks);
 		}
 
+		setupColumnDropZone(columnsEl, project.id, callbacks);
+
 		// Add Column button
 		const addColBtn = columnsEl.createDiv({ cls: "kanban-add-column" });
 		const addColBtnInner = addColBtn.createEl("button", {
@@ -114,7 +116,7 @@ function renderColumn(columnsEl: HTMLElement, project: Project, column: Column, 
 	// Drag grip for column reordering (skip for Done column)
 	if (!isDone) {
 		const grip = headerEl.createDiv({ cls: "kanban-column-grip", text: "\u2801" });
-		setupColumnDrag(grip, columnEl, project.id, column.id, callbacks);
+		setupColumnDrag(grip, columnEl, project.id, column.id);
 	}
 
 	// Column name (click to edit, except Done column)
@@ -213,19 +215,18 @@ function renderCard(cardsEl: HTMLElement, project: Project, column: Column, card
 	});
 
 	// Setup drag for this card
-	setupCardDrag(cardEl, card.id, project.id, column.id, callbacks);
+	setupCardDrag(cardEl, card.id, project.id, column.id);
 }
 
 function setupCardDropZone(cardsEl: HTMLElement, projectId: string, columnId: string, callbacks: RenderCallbacks) {
 	cardsEl.addEventListener("dragover", (e) => {
-		e.preventDefault();
+		if (isColumnDragActive()) return;
 		if (!e.dataTransfer?.types.includes("application/kanban-card")) return;
+		e.preventDefault();
 		e.dataTransfer.dropEffect = "move";
 
-		// Remove existing placeholders
 		cardsEl.querySelectorAll(".kanban-placeholder").forEach(el => el.remove());
 
-		// Calculate insertion position
 		const placeholder = createDiv({ cls: "kanban-placeholder" });
 
 		const afterElement = getDragAfterElement(cardsEl, e.clientY);
@@ -237,22 +238,23 @@ function setupCardDropZone(cardsEl: HTMLElement, projectId: string, columnId: st
 	});
 
 	cardsEl.addEventListener("dragleave", (e) => {
-		// Only remove if leaving the cards container
 		if (!cardsEl.contains(e.relatedTarget as Node)) {
 			cardsEl.querySelectorAll(".kanban-placeholder").forEach(el => el.remove());
 		}
 	});
 
 	cardsEl.addEventListener("drop", (e) => {
+		if (isColumnDragActive()) return;
+		if (!e.dataTransfer?.types.includes("application/kanban-card")) return;
 		e.preventDefault();
+		e.stopPropagation();
 		cardsEl.querySelectorAll(".kanban-placeholder").forEach(el => el.remove());
 
-		const cardData = e.dataTransfer?.getData("application/kanban-card");
+		const cardData = e.dataTransfer.getData("application/kanban-card");
 		if (!cardData) return;
 
 		try {
 			const payload = JSON.parse(cardData);
-			// Calculate drop index
 			const afterElement = getDragAfterElement(cardsEl, e.clientY);
 			let targetIndex: number;
 			if (afterElement) {
