@@ -1,10 +1,18 @@
 import { RenderCallbacks } from "./types";
 import { moveColumn } from "./dataManager";
 
+const COLUMN_MIME = "application/kanban-column";
+
 let activeColumnDrag: { columnId: string; sourceProjectId: string } | null = null;
 
 export function isColumnDragActive(): boolean {
 	return activeColumnDrag !== null;
+}
+
+export function resetColumnDragState(): void {
+	activeColumnDrag = null;
+	document.querySelectorAll(".kanban-column-placeholder").forEach(el => el.remove());
+	document.querySelectorAll(".dragging-column").forEach(el => el.removeClass("dragging-column"));
 }
 
 export function setupCardDrag(
@@ -16,6 +24,10 @@ export function setupCardDrag(
 	cardEl.draggable = true;
 
 	cardEl.addEventListener("dragstart", (e) => {
+		if (isColumnDragActive()) {
+			e.preventDefault();
+			return;
+		}
 		if (!e.dataTransfer) return;
 		e.dataTransfer.setData("application/kanban-card", JSON.stringify({
 			cardId,
@@ -42,7 +54,7 @@ export function setupColumnDrag(
 
 	gripEl.addEventListener("dragstart", (e) => {
 		if (!e.dataTransfer) return;
-		e.dataTransfer.setData("text/plain", columnId);
+		e.dataTransfer.setData(COLUMN_MIME, columnId);
 		e.dataTransfer.effectAllowed = "move";
 		activeColumnDrag = { columnId, sourceProjectId: projectId };
 		requestAnimationFrame(() => {
@@ -51,9 +63,7 @@ export function setupColumnDrag(
 	});
 
 	gripEl.addEventListener("dragend", () => {
-		activeColumnDrag = null;
-		columnEl.removeClass("dragging-column");
-		document.querySelectorAll(".kanban-column-placeholder").forEach(el => el.remove());
+		resetColumnDragState();
 	});
 }
 
@@ -62,13 +72,10 @@ export function setupColumnDropZone(
 	projectId: string,
 	callbacks: RenderCallbacks
 ) {
-	// Capture-phase: guarantee every dragover inside the container calls
-	// preventDefault so the browser treats the entire area as a valid drop zone.
-	// Without this, hovering over deeply nested child elements (cards, buttons,
-	// text nodes) would cause the browser to reject the drop.
 	columnsContainer.addEventListener("dragover", (e) => {
 		if (!activeColumnDrag) return;
 		e.preventDefault();
+		if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
 	}, true);
 
 	columnsContainer.addEventListener("drop", (e) => {
@@ -76,9 +83,9 @@ export function setupColumnDropZone(
 		e.preventDefault();
 	}, true);
 
-	// Bubble-phase: handle placeholder visuals and the actual reorder logic.
 	columnsContainer.addEventListener("dragover", (e) => {
 		if (!activeColumnDrag) return;
+		e.preventDefault();
 
 		columnsContainer.querySelectorAll(".kanban-column-placeholder").forEach(el => el.remove());
 
@@ -106,10 +113,14 @@ export function setupColumnDropZone(
 
 	columnsContainer.addEventListener("drop", (e) => {
 		if (!activeColumnDrag) return;
+		e.preventDefault();
+		e.stopPropagation();
 
 		columnsContainer.querySelectorAll(".kanban-column-placeholder").forEach(el => el.remove());
 
 		const payload = activeColumnDrag;
+		activeColumnDrag = null;
+
 		if (payload.sourceProjectId !== projectId) return;
 
 		const afterColumn = getDragAfterColumn(columnsContainer, e.clientX);

@@ -5,7 +5,7 @@ import {
 	addCard, removeCard, updateCard, moveCard,
 	isDoneColumn, DONE_COLUMN_NAME,
 } from "./dataManager";
-import { setupCardDrag, setupColumnDrag, setupColumnDropZone, isColumnDragActive } from "./dragDrop";
+import { setupCardDrag, setupColumnDrag, setupColumnDropZone, isColumnDragActive, resetColumnDragState } from "./dragDrop";
 
 export function renderBoard(container: HTMLElement, callbacks: RenderCallbacks) {
 	const data = callbacks.getData();
