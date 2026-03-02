@@ -122,6 +122,23 @@
 	align-items: flex-start;
 }
 
+.kanban-columns::-webkit-scrollbar {
+	height: 8px;
+}
+
+.kanban-columns::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.kanban-columns::-webkit-scrollbar-thumb {
+	background: var(--background-modifier-border);
+	border-radius: 4px;
+}
+
+.kanban-columns::-webkit-scrollbar-thumb:hover {
+	background: var(--text-muted);
+}
+
 /* ===== Column ===== */
 .kanban-column {
 	min-width: 220px;
