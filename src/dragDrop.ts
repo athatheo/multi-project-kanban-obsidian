@@ -36,6 +36,7 @@ export function setupCardDrag(
 		}));
 		e.dataTransfer.effectAllowed = "move";
 		cardEl.addClass("dragging");
+		console.debug("[kanban-dragstart] card", cardId, "from column", columnId, "project", projectId);
 	});
 
 	cardEl.addEventListener("dragend", () => {
@@ -135,8 +136,19 @@ export function setupColumnDropZone(
 			targetIndex = allColumns.length;
 		}
 
+		console.debug("[kanban-col-drop] column", payload.columnId,
+			"clientX=", e.clientX,
+			"afterColumn=", afterColumn?.getAttribute("data-column-id"),
+			"targetIndex=", targetIndex,
+			"allColumns=", allColumns.map(c => c.getAttribute("data-column-id")));
+
 		const data = callbacks.getData();
 		const newData = moveColumn(data, payload.columnId, projectId, targetIndex);
+
+		if (newData === data) {
+			console.warn("[kanban-col-drop] moveColumn returned same data (no-op)");
+		}
+
 		callbacks.onDataChanged(newData);
 	});
 }

@@ -244,14 +244,23 @@ function setupCardDropZone(cardsEl: HTMLElement, projectId: string, columnId: st
 	});
 
 	cardsEl.addEventListener("drop", (e) => {
-		if (isColumnDragActive()) return;
-		if (!e.dataTransfer?.types.includes("application/kanban-card")) return;
+		if (isColumnDragActive()) {
+			console.debug("[kanban-drop] skipped: column drag active");
+			return;
+		}
+		if (!e.dataTransfer?.types.includes("application/kanban-card")) {
+			console.debug("[kanban-drop] skipped: no kanban-card type. types=", e.dataTransfer?.types);
+			return;
+		}
 		e.preventDefault();
 		e.stopPropagation();
 		cardsEl.querySelectorAll(".kanban-placeholder").forEach(el => el.remove());
 
 		const cardData = e.dataTransfer.getData("application/kanban-card");
-		if (!cardData) return;
+		if (!cardData) {
+			console.debug("[kanban-drop] skipped: empty cardData");
+			return;
+		}
 
 		try {
 			const payload = JSON.parse(cardData);
@@ -264,11 +273,21 @@ function setupCardDropZone(cardsEl: HTMLElement, projectId: string, columnId: st
 				targetIndex = cardsEl.querySelectorAll(".kanban-card:not(.dragging)").length;
 			}
 
+			console.debug("[kanban-drop] card", payload.cardId,
+				"from", payload.sourceColumnId, "→", columnId,
+				"targetIndex=", targetIndex,
+				"afterElement=", afterElement?.getAttribute("data-card-id"));
+
 			const data = callbacks.getData();
 			const newData = moveCard(data, payload.cardId, projectId, columnId, targetIndex);
+
+			if (newData === data) {
+				console.warn("[kanban-drop] moveCard returned same data (no-op)");
+			}
+
 			callbacks.onDataChanged(newData);
-		} catch {
-			// Invalid drop data
+		} catch (err) {
+			console.error("[kanban-drop] error:", err);
 		}
 	});
 }
