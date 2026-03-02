@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Card Drag-Drop Visual Test</title>
+<style>
+body { font-family: -apple-system, system-ui, sans-serif; padding: 24px; background: #1e1e2e; color: #cdd6f4; }
+h1 { font-size: 1.4em; margin-bottom: 8px; }
+.test-area { display: flex; gap: 32px; margin-bottom: 32px; }
+.column {
+  background: #313244; border-radius: 8px; padding: 12px; width: 220px; min-height: 120px;
+}
+.column h3 { margin: 0 0 12px; font-size: .95em; color: #89b4fa; }
+.kanban-cards { min-height: 40px; }
+.kanban-card {
+  background: #45475a; border-radius: 6px; padding: 10px 12px; margin-bottom: 8px;
+  cursor: grab; user-select: none; transition: opacity 0.15s;
+}
+.kanban-card.dragging { opacity: 0.35; }
+.kanban-placeholder { height: 4px; background: #89b4fa; border-radius: 2px; margin: 4px 0; }
+.log { background: #181825; padding: 16px; border-radius: 8px; font-family: 'SF Mono', monospace; font-size: .85em; max-height: 300px; overflow-y: auto; }
+.log .pass { color: #a6e3a1; }
+.log .fail { color: #f38ba8; }
+.log .info { color: #f9e2af; }
+.instructions { background: #313244; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-size: .9em; line-height: 1.5; }
+</style>
+</head>
+<body>
+<h1>Card Drag-Drop Visual Test</h1>
+<div class="instructions">
+  <strong>Manual test:</strong> Drag cards between columns and within the same column. The log below records each move.
+  <br>Try dragging <strong>Card A</strong> forward (between B and C) within Column 1 — this was the bug scenario.
+  <br><br>
+  <strong>Automated test:</strong> runs on page load and verifies the index calculation logic.
+</div>
+
+<div class="test-area">
+  <div class="column" id="col1">
+    <h3>Column 1</h3>
+    <div class="kanban-cards" data-column-id="col1"></div>
+  </div>
+  <div class="column" id="col2">
+    <h3>Column 2</h3>
+    <div class="kanban-cards" data-column-id="col2"></div>
+  </div>
+</div>
+
+<div class="log" id="log"></div>
+
+<script>
+const logEl = document.getElementById('log');
+function log(msg, cls = '') {
+  const line = document.createElement('div');
+  line.className = cls;
+  line.textContent = msg;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+// Board state
+let cards = {
+  col1: [
+    { id: 'a', title: 'Card A' },
+    { id: 'b', title: 'Card B' },
+    { id: 'c', title: 'Card C' },
+    { id: 'd', title: 'Card D' },
+  ],
+  col2: [
+    { id: 'e', title: 'Card E' },
+    { id: 'f', title: 'Card F' },
+  ]
+};
+
+function render() {
+  for (const colId of ['col1', 'col2']) {
+    const container = document.querySelector(`.kanban-cards[data-column-id="${colId}"]`);
+    container.innerHTML = '';
+    for (const card of cards[colId]) {
+      const el = document.createElement('div');
+      el.className = 'kanban-card';
+      el.setAttribute('data-card-id', card.id);
+      el.draggable = true;
+      el.textContent = card.title;
+      container.appendChild(el);
+      setupCardDrag(el, card.id, colId);
+    }
+    setupDropZone(container, colId);
+  }
+}
+
+function setupCardDrag(el, cardId, colId) {
+  el.addEventListener('dragstart', (e) => {
+    e.dataTransfer.setData('application/kanban-card', JSON.stringify({ cardId, sourceColumnId: colId }));
+    e.dataTransfer.effectAllowed = 'move';
+    el.classList.add('dragging');
+  });
+  el.addEventListener('dragend', () => {
+    el.classList.remove('dragging');
+    document.querySelectorAll('.kanban-placeholder').forEach(p => p.remove());
+  });
+}
+
+function getDragAfterElement(container, y) {
+  const elements = [...container.querySelectorAll('.kanban-card:not(.dragging)')];
+  let closest = null;
+  let closestOffset = Number.NEGATIVE_INFINITY;
+  for (const child of elements) {
+    const box = child.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    if (offset < 0 && offset > closestOffset) {
+      closestOffset = offset;
+      closest = child;
+    }
+  }
+  return closest;
+}
+
+function setupDropZone(container, colId) {
+  container.addEventListener('dragover', (e) => {
+    if (!e.dataTransfer.types.includes('application/kanban-card')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    container.querySelectorAll('.kanban-placeholder').forEach(p => p.remove());
+    const afterEl = getDragAfterElement(container, e.clientY);
+    const placeholder = document.createElement('div');
+    placeholder.className = 'kanban-placeholder';
+    if (afterEl) {
+      container.insertBefore(placeholder, afterEl);
+    } else {
+      container.appendChild(placeholder);
+    }
+  });
+
+  container.addEventListener('dragleave', (e) => {
+    if (!container.contains(e.relatedTarget)) {
+      container.querySelectorAll('.kanban-placeholder').forEach(p => p.remove());
+    }
+  });
+
+  container.addEventListener('drop', (e) => {
+    if (!e.dataTransfer.types.includes('application/kanban-card')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    container.querySelectorAll('.kanban-placeholder').forEach(p => p.remove());
+
+    const payload = JSON.parse(e.dataTransfer.getData('application/kanban-card'));
+    const afterEl = getDragAfterElement(container, e.clientY);
+
+    // THE FIX: use :not(.dragging)
+    let targetIndex;
+    if (afterEl) {
+      const visibleCards = [...container.querySelectorAll('.kanban-card:not(.dragging)')];
+      targetIndex = visibleCards.indexOf(afterEl);
+    } else {
+      targetIndex = container.querySelectorAll('.kanban-card:not(.dragging)').length;
+    }
+
+    // Move the card in state
+    const sourceCol = payload.sourceColumnId;
+    const cardIdx = cards[sourceCol].findIndex(c => c.id === payload.cardId);
+    if (cardIdx === -1) return;
+    const [card] = cards[sourceCol].splice(cardIdx, 1);
+    const insertAt = Math.min(targetIndex, cards[colId].length);
+    cards[colId].splice(insertAt, 0, card);
+
+    log(`Moved "${card.title}" from ${sourceCol}[${cardIdx}] → ${colId}[${insertAt}]  |  ${colId} order: [${cards[colId].map(c=>c.title).join(', ')}]`, 'info');
+    render();
+  });
+}
+
+render();
+
+// ====== Automated index tests ======
+log('--- Automated Index Calculation Tests ---', '');
+
+function testIndex(description, cardIds, dragId, dropY, expected) {
+  // Build a mock container with positioned cards
+  const container = document.createElement('div');
+  container.style.position = 'absolute';
+  container.style.top = '0';
+  container.style.left = '-9999px';
+  document.body.appendChild(container);
+
+  const CARD_H = 42;
+  const GAP = 8;
+  for (let i = 0; i < cardIds.length; i++) {
+    const el = document.createElement('div');
+    el.className = 'kanban-card';
+    el.setAttribute('data-card-id', cardIds[i]);
+    if (cardIds[i] === dragId) el.classList.add('dragging');
+    el.style.position = 'absolute';
+    el.style.top = (i * (CARD_H + GAP)) + 'px';
+    el.style.height = CARD_H + 'px';
+    el.style.width = '200px';
+    container.appendChild(el);
+  }
+
+  const afterEl = getDragAfterElement(container, dropY);
+  let idx;
+  if (afterEl) {
+    idx = [...container.querySelectorAll('.kanban-card:not(.dragging)')].indexOf(afterEl);
+  } else {
+    idx = container.querySelectorAll('.kanban-card:not(.dragging)').length;
+  }
+
+  // Apply moveCard logic
+  const arr = cardIds.filter(id => id !== dragId);
+  const insertAt = Math.min(idx, arr.length);
+  arr.splice(insertAt, 0, dragId);
+
+  const pass = arr.length === expected.length && arr.every((v, i) => v === expected[i]);
+  if (pass) {
+    log(`  PASS: ${description} → [${arr.join(',')}]`, 'pass');
+  } else {
+    log(`  FAIL: ${description} → got [${arr.join(',')}] expected [${expected.join(',')}]`, 'fail');
+  }
+  container.remove();
+}
+
+testIndex('Drag A forward between B,C', ['a','b','c'], 'a', 80, ['b','a','c']);
+testIndex('Drag A forward to end',      ['a','b','c'], 'a', 999, ['b','c','a']);
+testIndex('Drag C backward before A',   ['a','b','c'], 'c', 5,   ['c','a','b']);
+testIndex('Drag C backward between A,B',['a','b','c'], 'c', 35,  ['a','c','b']);
+testIndex('Drag B forward past C,D',    ['a','b','c','d'], 'b', 999, ['a','c','d','b']);
+testIndex('Drag A stays at front',       ['a','b','c'], 'a', 5, ['a','b','c']);
+testIndex('Two cards: A after B',        ['a','b'], 'a', 999, ['b','a']);
+testIndex('Two cards: B before A',       ['a','b'], 'b', 5, ['b','a']);
+
+log('--- Done ---', '');
+</script>
+</body>
+</html>

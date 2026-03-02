@@ -136,7 +136,13 @@
 }
 
 .kanban-column.dragging-column {
-	opacity: 0.4;
+	opacity: 0;
+	max-width: 0 !important;
+	min-width: 0 !important;
+	overflow: hidden;
+	padding: 0 !important;
+	margin: 0 !important;
+	border-width: 0 !important;
 }
 
 /* ===== Column Header ===== */
@@ -233,7 +239,12 @@
 }
 
 .kanban-card.dragging {
-	opacity: 0.3;
+	opacity: 0;
+	max-height: 0 !important;
+	overflow: hidden;
+	padding: 0 !important;
+	margin: 0 !important;
+	border-width: 0 !important;
 }
 
 .kanban-card:active {
