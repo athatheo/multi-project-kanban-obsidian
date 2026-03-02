@@ -258,10 +258,10 @@ function setupCardDropZone(cardsEl: HTMLElement, projectId: string, columnId: st
 			const afterElement = getDragAfterElement(cardsEl, e.clientY);
 			let targetIndex: number;
 			if (afterElement) {
-				const cards = Array.from(cardsEl.querySelectorAll(".kanban-card"));
+				const cards = Array.from(cardsEl.querySelectorAll(".kanban-card:not(.dragging)"));
 				targetIndex = cards.indexOf(afterElement);
 			} else {
-				targetIndex = cardsEl.querySelectorAll(".kanban-card").length;
+				targetIndex = cardsEl.querySelectorAll(".kanban-card:not(.dragging)").length;
 			}
 
 			const data = callbacks.getData();
