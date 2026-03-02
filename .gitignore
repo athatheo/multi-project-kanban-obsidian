@@ -1,5 +1,5 @@
 # Build
-main.js
+/main.js
 *.js.map
 mcp-server/dist
 

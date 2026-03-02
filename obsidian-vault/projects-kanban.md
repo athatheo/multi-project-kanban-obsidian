@@ -1,0 +1,108 @@
+---
+kanban-board: true
+projects:
+  - id: "proj-1739000000001"
+    name: "RSAC"
+    color: "#4a90d9"
+    collapsed: false
+    columns:
+      - id: "col-1739000000001"
+        name: "Research idea"
+        cards:
+          - id: "card-1739000000001"
+            title: "Automatic paper production with Claude"
+          - id: "card-1739000000002"
+            title: "Automatic jailbreak for local models that change the generated words (prefill) so that the sequence is jailbroken — check omer's message; https://aclanthology.org/2024.acl-long.299.pdf; https://aclanthology.org/2025.findings-acl.1294.pdf; Add automatic judgement of the newly created output from the model, fed to chatpgt judge, and change the kv cache dynamically"
+          - id: "card-1739000000003"
+            title: "measure the most common agent target websites and register similar addresses to prompt inject them"
+      - id: "col-1739000000002"
+        name: "Genie game, what should we do?"
+        cards:
+          - id: "card-1739000000004"
+            title: "blog post?"
+          - id: "card-1739000000005"
+            title: "Try to improve it, give it more thought, ideas to make it more complex"
+      - id: "col-1739000000003"
+        name: "Shorts"
+        cards:
+          - id: "card-1739000000006"
+            title: "Important User Study — Add up/down vote for technical & up/down vote for marketing (or add another question in the user study); Add possible text explanation for up/down vote; Algorithms to test (Generate the random videos, Generate technical videos)"
+          - id: "card-1739000000007"
+            title: "edge case: if panel, then stacking is wrong - find a way to identify whether there's slides or not, and make a different recropping — Only speaker crop & blur background"
+          - id: "card-1739000000008"
+            title: "Change font size"
+          - id: "card-1739000000009"
+            title: "Make sure there's a download slides link in the cosmos db"
+          - id: "card-1739000000010"
+            title: "Add extra metadata in the pipeline creation process and the db — Presenters/Contributors; check what other metadata i've added and add these"
+          - id: "card-1739000000011"
+            title: "Make sure the way I added Museo Sans is correct legally"
+          - id: "card-1739000000012"
+            title: "Add code to populate the download slides button"
+          - id: "card-1739000000013"
+            title: "Make sure likes work with the new schema"
+      - id: "col-1739000000004"
+        name: "Red Teaming with AIOps"
+        cards:
+          - id: "card-1739000000014"
+            title: "Reminder?"
+      - id: "col-1739000000005"
+        name: "Paper Reimplementation"
+        cards:
+          - id: "card-1739000000015"
+            title: "Beyond Data Filtering — Prune a trained model only on forget, not on retain; Make the forget/retain trainable parameters, and not fixed (a. completely learnable, b. have an llm judge to further label data); Identify the areas of weights that are about denial and freez"
+          - id: "card-1739000000016"
+            title: "Agentic Misalignment Reproduction Plan (Learning-Oriented)"
+      - id: "col-1739000000006"
+        name: "ATLAS"
+        cards:
+          - id: "card-1739000000017"
+            title: "Understand the bubble arrangement in atlas"
+          - id: "card-1739000000018"
+            title: "Should I fill the TopRatedSessions?"
+      - id: "col-1739000000007"
+        name: "AIOps"
+        cards:
+          - id: "card-1739000000019"
+            title: "Features to add — A website page that nicely shows the results; A custom case with a demo application of the attack, show what would happen in reality (Add actual effects of prompt injection)"
+  - id: "proj-1739000000002"
+    name: "Personal"
+    color: "#e74c3c"
+    collapsed: false
+    columns:
+      - id: "col-1739000000008"
+        name: "ELKE bot"
+        cards:
+          - id: "card-1739000000020"
+            title: "GitLab"
+          - id: "card-1739000000021"
+            title: "Google Sheets"
+      - id: "col-1739000000009"
+        name: "Kicad"
+        cards:
+          - id: "card-1739000000022"
+            title: "Tutorials"
+          - id: "card-1739000000023"
+            title: "Design a PCB with an esp32 with camera"
+      - id: "col-1739000000010"
+        name: "Robotics"
+        cards:
+          - id: "card-1739000000024"
+            title: "Start a course"
+          - id: "card-1739000000025"
+            title: "Robot Arms — Train a custom model (fix camera positions and maybe that helps); Add a custom camera on top of hands"
+      - id: "col-1739000000011"
+        name: "Kozaris work"
+        cards:
+          - id: "card-1739000000026"
+            title: "Continue TRM"
+          - id: "card-1739000000027"
+            title: "Screen that your friends can change remotely"
+          - id: "card-1739000000028"
+            title: "Bobe - BoBe TODO"
+      - id: "col-1739000000012"
+        name: "CAD"
+        cards:
+          - id: "card-1739000000029"
+            title: "Wall mount for tablet"
+---
