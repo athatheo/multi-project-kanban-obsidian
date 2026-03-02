@@ -1,6 +1,7 @@
 # Build
 main.js
 *.js.map
+mcp-server/dist
 
 # npm
 node_modules
