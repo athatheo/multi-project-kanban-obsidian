@@ -85,7 +85,7 @@ function renderProject(boardEl: HTMLElement, project: Project, callbacks: Render
 			renderColumn(columnsEl, project, column, callbacks);
 		}
 
-		setupColumnDropZone(columnsEl, project.id, callbacks);
+		setupColumnDropZone(projectEl, columnsEl, project.id, callbacks);
 
 		// Add Column button
 		const addColBtn = columnsEl.createDiv({ cls: "kanban-add-column" });
@@ -245,11 +245,11 @@ function setupCardDropZone(cardsEl: HTMLElement, projectId: string, columnId: st
 
 	cardsEl.addEventListener("drop", (e) => {
 		if (isColumnDragActive()) {
-			console.debug("[kanban-drop] skipped: column drag active");
+			console.log("[kanban-drop] skipped: column drag active");
 			return;
 		}
 		if (!e.dataTransfer?.types.includes("application/kanban-card")) {
-			console.debug("[kanban-drop] skipped: no kanban-card type. types=", e.dataTransfer?.types);
+			console.log("[kanban-drop] skipped: no kanban-card type. types=", e.dataTransfer?.types);
 			return;
 		}
 		e.preventDefault();
@@ -258,7 +258,7 @@ function setupCardDropZone(cardsEl: HTMLElement, projectId: string, columnId: st
 
 		const cardData = e.dataTransfer.getData("application/kanban-card");
 		if (!cardData) {
-			console.debug("[kanban-drop] skipped: empty cardData");
+			console.log("[kanban-drop] skipped: empty cardData");
 			return;
 		}
 
@@ -273,7 +273,7 @@ function setupCardDropZone(cardsEl: HTMLElement, projectId: string, columnId: st
 				targetIndex = cardsEl.querySelectorAll(".kanban-card:not(.dragging)").length;
 			}
 
-			console.debug("[kanban-drop] card", payload.cardId,
+			console.log("[kanban-drop] card", payload.cardId,
 				"from", payload.sourceColumnId, "→", columnId,
 				"targetIndex=", targetIndex,
 				"afterElement=", afterElement?.getAttribute("data-card-id"));

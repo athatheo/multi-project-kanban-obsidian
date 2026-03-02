@@ -36,7 +36,7 @@ export function setupCardDrag(
 		}));
 		e.dataTransfer.effectAllowed = "move";
 		cardEl.addClass("dragging");
-		console.debug("[kanban-dragstart] card", cardId, "from column", columnId, "project", projectId);
+		console.log("[kanban-dragstart] card", cardId, "from column", columnId, "project", projectId);
 	});
 
 	cardEl.addEventListener("dragend", () => {
@@ -69,22 +69,23 @@ export function setupColumnDrag(
 }
 
 export function setupColumnDropZone(
+	dropZoneEl: HTMLElement,
 	columnsContainer: HTMLElement,
 	projectId: string,
 	callbacks: RenderCallbacks
 ) {
-	columnsContainer.addEventListener("dragover", (e) => {
+	dropZoneEl.addEventListener("dragover", (e) => {
 		if (!activeColumnDrag) return;
 		e.preventDefault();
 		if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
 	}, true);
 
-	columnsContainer.addEventListener("drop", (e) => {
+	dropZoneEl.addEventListener("drop", (e) => {
 		if (!activeColumnDrag) return;
 		e.preventDefault();
 	}, true);
 
-	columnsContainer.addEventListener("dragover", (e) => {
+	dropZoneEl.addEventListener("dragover", (e) => {
 		if (!activeColumnDrag) return;
 		e.preventDefault();
 
@@ -105,14 +106,14 @@ export function setupColumnDropZone(
 		}
 	});
 
-	columnsContainer.addEventListener("dragleave", (e) => {
+	dropZoneEl.addEventListener("dragleave", (e) => {
 		if (!activeColumnDrag) return;
-		if (!columnsContainer.contains(e.relatedTarget as Node)) {
+		if (!dropZoneEl.contains(e.relatedTarget as Node)) {
 			columnsContainer.querySelectorAll(".kanban-column-placeholder").forEach(el => el.remove());
 		}
 	});
 
-	columnsContainer.addEventListener("drop", (e) => {
+	dropZoneEl.addEventListener("drop", (e) => {
 		if (!activeColumnDrag) return;
 		e.preventDefault();
 		e.stopPropagation();
@@ -136,7 +137,7 @@ export function setupColumnDropZone(
 			targetIndex = allColumns.length;
 		}
 
-		console.debug("[kanban-col-drop] column", payload.columnId,
+		console.log("[kanban-col-drop] column", payload.columnId,
 			"clientX=", e.clientX,
 			"afterColumn=", afterColumn?.getAttribute("data-column-id"),
 			"targetIndex=", targetIndex,
