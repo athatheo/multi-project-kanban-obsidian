@@ -36,6 +36,9 @@
 	border-radius: 8px;
 	background: var(--background-secondary);
 	overflow: hidden;
+	max-height: 50vh;
+	display: flex;
+	flex-direction: column;
 }
 
 /* ===== Project Header ===== */
@@ -119,7 +122,9 @@
 	gap: 12px;
 	padding: 14px;
 	overflow-x: auto;
-	align-items: flex-start;
+	align-items: stretch;
+	flex: 1;
+	min-height: 0;
 }
 
 .kanban-columns::-webkit-scrollbar {
@@ -229,6 +234,7 @@
 	flex-direction: column;
 	gap: 6px;
 	min-height: 40px;
+	overflow-y: auto;
 }
 
 /* ===== Card ===== */
