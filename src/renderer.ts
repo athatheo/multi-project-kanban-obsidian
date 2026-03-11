@@ -159,6 +159,9 @@ function renderColumn(columnsEl: HTMLElement, project: Project, column: Column, 
 
 	// Setup drop targets
 	setupContainerDrop(cardsEl, column.id, project.id, callbacks);
+	if (!isDone) {
+		setupColumnDropTarget(columnEl, columnIndex, project.id, column.id, callbacks);
+	}
 
 	// Add card button
 	const addCardBtn = columnEl.createDiv({ cls: "kanban-add-card" });
@@ -175,7 +178,7 @@ function renderColumn(columnsEl: HTMLElement, project: Project, column: Column, 
 	});
 }
 
-function renderCard(cardsEl: HTMLElement, project: Project, column: Column, card: Card, callbacks: RenderCallbacks) {
+function renderCard(cardsEl: HTMLElement, project: Project, column: Column, card: Card, cardIndex: number, callbacks: RenderCallbacks) {
 	const data = callbacks.getData();
 	const cardEl = cardsEl.createDiv({ cls: "kanban-card" });
 	cardEl.setAttribute("data-card-id", card.id);
@@ -217,100 +220,9 @@ function renderCard(cardsEl: HTMLElement, project: Project, column: Column, card
 		callbacks.onDataChanged(removeCard(data, card.id));
 	});
 
-	// Setup drag for this card
+	// Setup drag and drop for this card
 	setupCardDrag(cardEl, card.id, project.id, column.id);
-}
-
-function setupCardDropZone(cardsEl: HTMLElement, projectId: string, columnId: string, callbacks: RenderCallbacks) {
-	cardsEl.addEventListener("dragover", (e) => {
-		if (isColumnDragActive()) return;
-		if (!e.dataTransfer?.types.includes("application/kanban-card")) return;
-		e.preventDefault();
-		e.dataTransfer.dropEffect = "move";
-
-		cardsEl.querySelectorAll(".kanban-placeholder").forEach(el => el.remove());
-
-		const placeholder = createDiv({ cls: "kanban-placeholder" });
-
-		const afterElement = getDragAfterElement(cardsEl, e.clientY);
-		if (afterElement) {
-			cardsEl.insertBefore(placeholder, afterElement);
-		} else {
-			cardsEl.appendChild(placeholder);
-		}
-	});
-
-	cardsEl.addEventListener("dragleave", (e) => {
-		if (!cardsEl.contains(e.relatedTarget as Node)) {
-			cardsEl.querySelectorAll(".kanban-placeholder").forEach(el => el.remove());
-		}
-	});
-
-	cardsEl.addEventListener("drop", (e) => {
-		if (isColumnDragActive()) {
-			console.log("[kanban-drop] skipped: column drag active");
-			return;
-		}
-		if (!e.dataTransfer?.types.includes("application/kanban-card")) {
-			console.log("[kanban-drop] skipped: no kanban-card type. types=", e.dataTransfer?.types);
-			return;
-		}
-		e.preventDefault();
-		e.stopPropagation();
-		cardsEl.querySelectorAll(".kanban-placeholder").forEach(el => el.remove());
-
-		const cardData = e.dataTransfer.getData("application/kanban-card");
-		if (!cardData) {
-			console.log("[kanban-drop] skipped: empty cardData");
-			return;
-		}
-
-		try {
-			const payload = JSON.parse(cardData);
-			const afterElement = getDragAfterElement(cardsEl, e.clientY);
-			let targetIndex: number;
-			if (afterElement) {
-				const cards = Array.from(cardsEl.querySelectorAll(".kanban-card:not(.dragging)"));
-				targetIndex = cards.indexOf(afterElement);
-			} else {
-				targetIndex = cardsEl.querySelectorAll(".kanban-card:not(.dragging)").length;
-			}
-
-			console.log("[kanban-drop] card", payload.cardId,
-				"from", payload.sourceColumnId, "→", columnId,
-				"targetIndex=", targetIndex,
-				"afterElement=", afterElement?.getAttribute("data-card-id"));
-
-			const data = callbacks.getData();
-			const newData = moveCard(data, payload.cardId, projectId, columnId, targetIndex);
-
-			if (newData === data) {
-				console.warn("[kanban-drop] moveCard returned same data (no-op)");
-			}
-
-			callbacks.onDataChanged(newData);
-		} catch (err) {
-			console.error("[kanban-drop] error:", err);
-		}
-	});
-}
-
-function getDragAfterElement(container: HTMLElement, y: number): Element | null {
-	const draggableElements = Array.from(container.querySelectorAll(".kanban-card:not(.dragging)"));
-
-	let closestElement: Element | null = null;
-	let closestOffset = Number.NEGATIVE_INFINITY;
-
-	for (const child of draggableElements) {
-		const box = child.getBoundingClientRect();
-		const offset = y - box.top - box.height / 2;
-		if (offset < 0 && offset > closestOffset) {
-			closestOffset = offset;
-			closestElement = child;
-		}
-	}
-
-	return closestElement;
+	setupCardDropTarget(cardEl, cardIndex, column.id, project.id, callbacks);
 }
 
 function startInlineEdit(el: HTMLElement, currentValue: string, onSave: (value: string) => void) {

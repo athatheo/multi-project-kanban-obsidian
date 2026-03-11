@@ -48,19 +48,12 @@ function isDoneColumn(col: { name: string }): boolean {
 	return col.name === "Done";
 }
 
-function findColumnLocation(data: BoardData, columnId: string) {
-	for (const project of data.projects) {
-		const columnIndex = project.columns.findIndex(c => c.id === columnId);
-		if (columnIndex !== -1) return { project, columnIndex };
-	}
-	return undefined;
-}
-
 function moveColumn(data: BoardData, columnId: string, targetProjectId: string, targetIndex: number): BoardData {
-	const location = findColumnLocation(data, columnId);
-	if (!location) return data;
-	if (location.project.id !== targetProjectId) return data;
-	const column = location.project.columns[location.columnIndex];
+	const project = data.projects.find(p => p.id === targetProjectId);
+	if (!project) return data;
+	const columnIndex = project.columns.findIndex(c => c.id === columnId);
+	if (columnIndex === -1) return data;
+	const column = project.columns[columnIndex];
 	if (isDoneColumn(column)) return data;
 	return {
 		...data,
@@ -83,9 +76,15 @@ function isColumnDragActive(): boolean {
 	return activeColumnDrag !== null;
 }
 
+function clearDropIndicators(): void {
+	document.querySelectorAll(".drop-above, .drop-below, .drop-before, .drop-after, .drop-target").forEach(el => {
+		el.classList.remove("drop-above", "drop-below", "drop-before", "drop-after", "drop-target");
+	});
+}
+
 function resetColumnDragState(): void {
 	activeColumnDrag = null;
-	document.querySelectorAll(".kanban-column-placeholder").forEach(el => el.remove());
+	clearDropIndicators();
 	document.querySelectorAll(".dragging-column").forEach(el => el.classList.remove("dragging-column"));
 }
 
@@ -105,81 +104,74 @@ function setupColumnDrag(
 	});
 }
 
-function getDragAfterColumn(container: HTMLElement, x: number): Element | null {
-	const columns = Array.from(container.querySelectorAll(".kanban-column:not(.dragging-column)"));
-	let closest: Element | null = null;
-	let closestOffset = Number.POSITIVE_INFINITY;
-	for (const col of columns) {
-		const box = col.getBoundingClientRect();
-		const midX = box.left + box.width / 2;
-		const offset = midX - x;
-		if (offset > 0 && offset < closestOffset) {
-			closestOffset = offset;
-			closest = col;
+function setupColumnDropTarget(
+	columnEl: HTMLElement, columnIndex: number, projectId: string, columnId: string, callbacks: RenderCallbacks,
+) {
+	columnEl.addEventListener("dragover", (e: any) => {
+		if (!activeColumnDrag) return;
+		e.preventDefault();
+		e.stopPropagation();
+		if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+		clearDropIndicators();
+		const rect = columnEl.getBoundingClientRect();
+		const midX = rect.left + rect.width / 2;
+		if (e.clientX < midX) {
+			columnEl.classList.add("drop-before");
+		} else {
+			columnEl.classList.add("drop-after");
 		}
-	}
-	return closest;
+	});
+
+	columnEl.addEventListener("dragleave", () => {
+		columnEl.classList.remove("drop-before");
+		columnEl.classList.remove("drop-after");
+	});
+
+	columnEl.addEventListener("drop", (e: any) => {
+		if (!activeColumnDrag) return;
+		e.preventDefault();
+		e.stopPropagation();
+		clearDropIndicators();
+		const payload = activeColumnDrag;
+		activeColumnDrag = null;
+		if (payload.sourceProjectId !== projectId) return;
+		const rect = columnEl.getBoundingClientRect();
+		const midX = rect.left + rect.width / 2;
+		let targetIndex = e.clientX < midX ? columnIndex : columnIndex + 1;
+		const data = callbacks.getData();
+		const project = data.projects.find(p => p.id === projectId);
+		if (project) {
+			const sourceIndex = project.columns.findIndex(c => c.id === payload.columnId);
+			if (sourceIndex !== -1 && sourceIndex < targetIndex) {
+				targetIndex--;
+			}
+		}
+		const newData = moveColumn(data, payload.columnId, projectId, targetIndex);
+		callbacks.onDataChanged(newData);
+	});
 }
 
-function setupColumnDropZone(
-	columnsContainer: HTMLElement, projectId: string, callbacks: RenderCallbacks,
+function setupColumnsContainerDrop(
+	columnsEl: HTMLElement, projectId: string, callbacks: RenderCallbacks,
 ) {
-	columnsContainer.addEventListener("dragover", (e: any) => {
+	columnsEl.addEventListener("dragover", (e: any) => {
 		if (!activeColumnDrag) return;
 		e.preventDefault();
 		if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
 	}, true);
 
-	columnsContainer.addEventListener("drop", (e: any) => {
+	columnsEl.addEventListener("drop", (e: any) => {
 		if (!activeColumnDrag) return;
-		e.preventDefault();
-	}, true);
-
-	columnsContainer.addEventListener("dragover", (e: any) => {
-		if (!activeColumnDrag) return;
-		e.preventDefault();
-		columnsContainer.querySelectorAll(".kanban-column-placeholder").forEach(el => el.remove());
-		const afterColumn = getDragAfterColumn(columnsContainer, e.clientX);
-		const placeholder = document.createElement("div");
-		placeholder.className = "kanban-column-placeholder";
-		if (afterColumn) {
-			columnsContainer.insertBefore(placeholder, afterColumn);
-		} else {
-			const addColBtn = columnsContainer.querySelector(".kanban-add-column");
-			if (addColBtn) {
-				columnsContainer.insertBefore(placeholder, addColBtn);
-			} else {
-				columnsContainer.appendChild(placeholder);
-			}
-		}
-	});
-
-	columnsContainer.addEventListener("dragleave", (e: any) => {
-		if (!activeColumnDrag) return;
-		if (!columnsContainer.contains(e.relatedTarget as Node)) {
-			columnsContainer.querySelectorAll(".kanban-column-placeholder").forEach(el => el.remove());
-		}
-	});
-
-	columnsContainer.addEventListener("drop", (e: any) => {
-		if (!activeColumnDrag) return;
+		if (e.defaultPrevented) return;
 		e.preventDefault();
 		e.stopPropagation();
-		columnsContainer.querySelectorAll(".kanban-column-placeholder").forEach(el => el.remove());
+		clearDropIndicators();
 		const payload = activeColumnDrag;
 		activeColumnDrag = null;
 		if (payload.sourceProjectId !== projectId) return;
-		const afterColumn = getDragAfterColumn(columnsContainer, e.clientX);
-		const allColumns = Array.from(
-			columnsContainer.querySelectorAll(".kanban-column:not(.dragging-column)")
-		);
-		let targetIndex: number;
-		if (afterColumn) {
-			targetIndex = allColumns.indexOf(afterColumn);
-		} else {
-			targetIndex = allColumns.length;
-		}
 		const data = callbacks.getData();
+		const project = data.projects.find(p => p.id === projectId);
+		const targetIndex = project ? project.columns.length : 0;
 		const newData = moveColumn(data, payload.columnId, projectId, targetIndex);
 		callbacks.onDataChanged(newData);
 	});
@@ -228,6 +220,7 @@ function createDragEvent(type: string, opts?: { clientX?: number; dataTransfer?:
 }
 
 const COL_WIDTH = 250;
+const COL_GAP = 12;
 
 function buildColumnsDOM(columnNames: string[], projectId: string): {
 	container: HTMLElement;
@@ -247,7 +240,7 @@ function buildColumnsDOM(columnNames: string[], projectId: string): {
 		col.setAttribute("data-column-id", name.toLowerCase());
 		col.setAttribute("data-project-id", projectId);
 
-		const left = i * (COL_WIDTH + 12);
+		const left = i * (COL_WIDTH + COL_GAP);
 		(col as any).getBoundingClientRect = () => ({
 			left, top: 0, width: COL_WIDTH, height: 300,
 			right: left + COL_WIDTH, bottom: 300,
@@ -279,6 +272,15 @@ function buildColumnsDOM(columnNames: string[], projectId: string): {
 	return { container, columns, grips };
 }
 
+function setupDropTargets(container: HTMLElement, columns: HTMLElement[], columnNames: string[], projectId: string, callbacks: RenderCallbacks) {
+	for (let i = 0; i < columns.length; i++) {
+		if (columnNames[i] !== "Done") {
+			setupColumnDropTarget(columns[i], i, projectId, columnNames[i].toLowerCase(), callbacks);
+		}
+	}
+	setupColumnsContainerDrop(container, projectId, callbacks);
+}
+
 function cleanup() {
 	resetColumnDragState();
 	document.body.innerHTML = "";
@@ -308,7 +310,7 @@ console.log("\n=== DOM Test: Column drag end resets activeColumnDrag ===");
 	cleanup();
 }
 
-console.log("\n=== DOM Test: Dragover creates placeholder ===");
+console.log("\n=== DOM Test: Dragover adds drop indicator class ===");
 {
 	cleanup();
 	let boardData: BoardData = {
@@ -327,13 +329,16 @@ console.log("\n=== DOM Test: Dragover creates placeholder ===");
 		onDataChanged: (d) => { boardData = d; },
 	};
 	const { container, columns, grips } = buildColumnsDOM(["A", "B", "Done"], "p1");
-	setupColumnDropZone(container, "p1", callbacks);
+	setupDropTargets(container, columns, ["A", "B", "Done"], "p1", callbacks);
 
 	grips[0].dispatchEvent(createDragEvent("dragstart", { dataTransfer: makeDataTransfer() }));
-	// Dispatch dragover on a child column (not directly on container) for realistic propagation
-	columns[1].dispatchEvent(createDragEvent("dragover", { clientX: 100 }));
-	const placeholders = container.querySelectorAll(".kanban-column-placeholder");
-	assert(placeholders.length === 1, "Placeholder created during dragover");
+	// Dragover on column B — clientX=300 is past B's midpoint at 387? No, B starts at 262, mid=387.
+	// clientX=300 < midX=387 → drop-before
+	columns[1].dispatchEvent(createDragEvent("dragover", { clientX: 300 }));
+	assert(columns[1].classList.contains("drop-before") || columns[1].classList.contains("drop-after"),
+		"Drop indicator class added during dragover");
+	assert(container.querySelectorAll(".kanban-column-placeholder").length === 0,
+		"No placeholder elements created (CSS-only indicators)");
 	cleanup();
 }
 
@@ -359,17 +364,15 @@ console.log("\n=== DOM Test: Drop triggers moveColumn and data update ===");
 	};
 	// Columns: A(0-250), B(262-512), C(524-774), Done(786-1036)
 	const { container, columns, grips } = buildColumnsDOM(["A", "B", "C", "Done"], "p1");
-	setupColumnDropZone(container, "p1", callbacks);
+	setupDropTargets(container, columns, ["A", "B", "C", "Done"], "p1", callbacks);
 
 	// Drag column C (index 2)
 	const dt = makeDataTransfer();
 	grips[2].dispatchEvent(createDragEvent("dragstart", { dataTransfer: dt }));
 	assert(isColumnDragActive(), "Column drag active");
 
-	// Drop before column A (clientX=10, which is before A's midpoint at 125)
-	// Non-dragging columns: A(midX=125), B(midX=387), Done(midX=911)
-	// getDragAfterColumn: offset=125-10=115>0 (A), 387-10=377>0 (B), 911-10=901>0 (Done)
-	// closest = A (offset 115) → targetIndex = 0
+	// Drop on column A, left half (clientX=10, A starts at 0, midX=125)
+	// 10 < 125 → drop-before → targetIndex = 0
 	columns[0].dispatchEvent(createDragEvent("drop", { clientX: 10, dataTransfer: dt }));
 	assert(dataChangedCalled, "onDataChanged called");
 	assertArrayEqual(getColumnNames(boardData, "p1"), ["C", "A", "B", "Done"], "Column C moved to front");
@@ -377,7 +380,7 @@ console.log("\n=== DOM Test: Drop triggers moveColumn and data update ===");
 	cleanup();
 }
 
-console.log("\n=== DOM Test: Drop with null afterColumn places at end (before Done) ===");
+console.log("\n=== DOM Test: Drop on right half places after column ===");
 {
 	cleanup();
 	let boardData: BoardData = {
@@ -387,6 +390,7 @@ console.log("\n=== DOM Test: Drop with null afterColumn places at end (before Do
 			columns: [
 				{ id: "a", name: "A", cards: [] },
 				{ id: "b", name: "B", cards: [] },
+				{ id: "c", name: "C", cards: [] },
 				{ id: "done", name: "Done", cards: [] },
 			],
 		}],
@@ -395,18 +399,17 @@ console.log("\n=== DOM Test: Drop with null afterColumn places at end (before Do
 		getData: () => boardData,
 		onDataChanged: (d) => { boardData = d; },
 	};
-	const { container, columns, grips } = buildColumnsDOM(["A", "B", "Done"], "p1");
-	setupColumnDropZone(container, "p1", callbacks);
+	const { container, columns, grips } = buildColumnsDOM(["A", "B", "C", "Done"], "p1");
+	setupDropTargets(container, columns, ["A", "B", "C", "Done"], "p1", callbacks);
 
+	// Drag A, drop on right half of B (B starts at 262, midX=387, clientX=400 > 387 → drop-after → targetIndex = 2)
 	grips[0].dispatchEvent(createDragEvent("dragstart", { dataTransfer: makeDataTransfer() }));
-	// In JSDOM, getBoundingClientRect returns all zeros, so clientX=9999 means all columns
-	// have midX (0) < clientX (9999), so getDragAfterColumn returns null -> targetIndex = allColumns.length
-	columns[1].dispatchEvent(createDragEvent("drop", { clientX: 9999, dataTransfer: makeDataTransfer() }));
-	assertArrayEqual(getColumnNames(boardData, "p1"), ["B", "A", "Done"], "A placed before Done via clamping");
+	columns[1].dispatchEvent(createDragEvent("drop", { clientX: 400, dataTransfer: makeDataTransfer() }));
+	assertArrayEqual(getColumnNames(boardData, "p1"), ["B", "A", "C", "Done"], "A placed after B");
 	cleanup();
 }
 
-console.log("\n=== DOM Test: Placeholder removed after drop ===");
+console.log("\n=== DOM Test: Drop indicators removed after drop ===");
 {
 	cleanup();
 	let boardData: BoardData = {
@@ -425,13 +428,15 @@ console.log("\n=== DOM Test: Placeholder removed after drop ===");
 		onDataChanged: (d) => { boardData = d; },
 	};
 	const { container, columns, grips } = buildColumnsDOM(["A", "B", "Done"], "p1");
-	setupColumnDropZone(container, "p1", callbacks);
+	setupDropTargets(container, columns, ["A", "B", "Done"], "p1", callbacks);
 
 	grips[0].dispatchEvent(createDragEvent("dragstart", { dataTransfer: makeDataTransfer() }));
-	columns[1].dispatchEvent(createDragEvent("dragover", { clientX: 100 }));
-	assert(container.querySelectorAll(".kanban-column-placeholder").length === 1, "Placeholder exists during drag");
-	columns[1].dispatchEvent(createDragEvent("drop", { clientX: 100, dataTransfer: makeDataTransfer() }));
-	assert(container.querySelectorAll(".kanban-column-placeholder").length === 0, "Placeholder removed after drop");
+	columns[1].dispatchEvent(createDragEvent("dragover", { clientX: 300 }));
+	const hasIndicator = columns[1].classList.contains("drop-before") || columns[1].classList.contains("drop-after");
+	assert(hasIndicator, "Indicator exists during drag");
+	columns[1].dispatchEvent(createDragEvent("drop", { clientX: 300, dataTransfer: makeDataTransfer() }));
+	const hasIndicatorAfter = columns[1].classList.contains("drop-before") || columns[1].classList.contains("drop-after");
+	assert(!hasIndicatorAfter, "Indicator removed after drop");
 	cleanup();
 }
 
@@ -453,7 +458,7 @@ console.log("\n=== DOM Test: Cross-project drop rejected ===");
 		onDataChanged: (d) => { boardData = d; dataChangedCalled = true; },
 	};
 	const { container: c2, columns: cols2 } = buildColumnsDOM(["B", "Done"], "p2");
-	setupColumnDropZone(c2, "p2", callbacks);
+	setupDropTargets(c2, cols2, ["B", "Done"], "p2", callbacks);
 
 	activeColumnDrag = { columnId: "a", sourceProjectId: "p1" };
 	cols2[0].dispatchEvent(createDragEvent("drop", { clientX: 0, dataTransfer: makeDataTransfer() }));
@@ -492,11 +497,11 @@ console.log("\n=== DOM Test: Multiple drag-drop cycles work ===");
 		onDataChanged: (d) => { boardData = d; },
 	};
 
-	// Cycle 1: Move C to front (drop at clientX=10, before first column midpoint)
+	// Cycle 1: Move C to front (drop on left half of A → targetIndex = 0)
 	{
 		cleanup();
 		const { container, columns, grips } = buildColumnsDOM(["A", "B", "C", "Done"], "p1");
-		setupColumnDropZone(container, "p1", callbacks);
+		setupDropTargets(container, columns, ["A", "B", "C", "Done"], "p1", callbacks);
 		grips[2].dispatchEvent(createDragEvent("dragstart", { dataTransfer: makeDataTransfer() }));
 		columns[0].dispatchEvent(createDragEvent("drop", { clientX: 10, dataTransfer: makeDataTransfer() }));
 		grips[2].dispatchEvent(createDragEvent("dragend"));
@@ -508,7 +513,7 @@ console.log("\n=== DOM Test: Multiple drag-drop cycles work ===");
 	{
 		document.body.innerHTML = "";
 		const { container, columns, grips } = buildColumnsDOM(["C", "A", "B", "Done"], "p1");
-		setupColumnDropZone(container, "p1", callbacks);
+		setupDropTargets(container, columns, ["C", "A", "B", "Done"], "p1", callbacks);
 		grips[2].dispatchEvent(createDragEvent("dragstart", { dataTransfer: makeDataTransfer() }));
 		columns[0].dispatchEvent(createDragEvent("drop", { clientX: 10, dataTransfer: makeDataTransfer() }));
 		grips[2].dispatchEvent(createDragEvent("dragend"));

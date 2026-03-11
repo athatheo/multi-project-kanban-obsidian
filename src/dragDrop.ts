@@ -237,9 +237,18 @@ export function setupColumnDropTarget(
 
 		const rect = columnEl.getBoundingClientRect();
 		const midX = rect.left + rect.width / 2;
-		const targetIndex = e.clientX < midX ? columnIndex : columnIndex + 1;
+		let targetIndex = e.clientX < midX ? columnIndex : columnIndex + 1;
 
+		// Same adjustment as cards: moveColumn removes first, then inserts
 		const data = callbacks.getData();
+		const project = data.projects.find(p => p.id === projectId);
+		if (project) {
+			const sourceIndex = project.columns.findIndex(c => c.id === payload.columnId);
+			if (sourceIndex !== -1 && sourceIndex < targetIndex) {
+				targetIndex--;
+			}
+		}
+
 		const newData = moveColumn(data, payload.columnId, projectId, targetIndex);
 		callbacks.onDataChanged(newData);
 	});

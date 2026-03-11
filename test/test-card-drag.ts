@@ -93,227 +93,167 @@ function getCardTitles(data: BoardData, projectId: string, columnId: string): st
 	return c ? c.cards.map(card => card.title) : [];
 }
 
-const CARD_HEIGHT = 50;
-const CARD_GAP = 8;
-
-function buildCardsDOM(cardIds: string[], dragCardId: string | null): {
-	container: HTMLElement;
-	cards: HTMLElement[];
-} {
-	const container = document.createElement("div");
-	container.className = "kanban-cards";
-	document.body.appendChild(container);
-	const cards: HTMLElement[] = [];
-
-	for (let i = 0; i < cardIds.length; i++) {
-		const card = document.createElement("div");
-		card.className = "kanban-card";
-		card.setAttribute("data-card-id", cardIds[i]);
-		if (cardIds[i] === dragCardId) {
-			card.classList.add("dragging");
-		}
-		const top = i * (CARD_HEIGHT + CARD_GAP);
-		(card as any).getBoundingClientRect = () => ({
-			left: 0, top, width: 200, height: CARD_HEIGHT,
-			right: 200, bottom: top + CARD_HEIGHT,
-			x: 0, y: top, toJSON() {},
-		});
-		container.appendChild(card);
-		cards.push(card);
-	}
-	return { container, cards };
-}
-
 /**
- * Replicates the exact logic from renderer.ts setupCardDropZone drop handler
- * (after the fix: using :not(.dragging))
+ * Index-based drop target logic:
+ * - Top half of card at cardIndex → targetIndex = cardIndex
+ * - Bottom half of card at cardIndex → targetIndex = cardIndex + 1
+ * - Same-column adjustment: if sourceIndex < targetIndex, targetIndex--
  */
-function simulateCardDrop(
-	cardsEl: HTMLElement,
-	dropY: number,
+function computeTargetIndex(
+	cardIndex: number,
+	topHalf: boolean,
+	sourceCardId: string,
+	sameColumn: boolean,
+	columnCards: { id: string }[],
 ): number {
-	const afterElement = getDragAfterElement(cardsEl, dropY);
-	let targetIndex: number;
-	if (afterElement) {
-		const cards = Array.from(cardsEl.querySelectorAll(".kanban-card:not(.dragging)"));
-		targetIndex = cards.indexOf(afterElement);
-	} else {
-		targetIndex = cardsEl.querySelectorAll(".kanban-card:not(.dragging)").length;
-	}
-	return targetIndex;
-}
-
-/**
- * The BROKEN version (before fix) — uses .kanban-card without :not(.dragging)
- */
-function simulateCardDropBroken(
-	cardsEl: HTMLElement,
-	dropY: number,
-): number {
-	const afterElement = getDragAfterElement(cardsEl, dropY);
-	let targetIndex: number;
-	if (afterElement) {
-		const cards = Array.from(cardsEl.querySelectorAll(".kanban-card"));
-		targetIndex = cards.indexOf(afterElement);
-	} else {
-		targetIndex = cardsEl.querySelectorAll(".kanban-card").length;
-	}
-	return targetIndex;
-}
-
-function getDragAfterElement(container: HTMLElement, y: number): Element | null {
-	const draggableElements = Array.from(container.querySelectorAll(".kanban-card:not(.dragging)"));
-	let closestElement: Element | null = null;
-	let closestOffset = Number.NEGATIVE_INFINITY;
-	for (const child of draggableElements) {
-		const box = child.getBoundingClientRect();
-		const offset = y - box.top - box.height / 2;
-		if (offset < 0 && offset > closestOffset) {
-			closestOffset = offset;
-			closestElement = child;
+	let targetIndex = topHalf ? cardIndex : cardIndex + 1;
+	if (sameColumn) {
+		const sourceIndex = columnCards.findIndex(c => c.id === sourceCardId);
+		if (sourceIndex !== -1 && sourceIndex < targetIndex) {
+			targetIndex--;
 		}
 	}
-	return closestElement;
-}
-
-function cleanup() {
-	document.body.innerHTML = "";
+	return targetIndex;
 }
 
 // =====================================================================
-// Test Suite: Card drag index calculation (the actual bug)
+// Test Suite: Index-based card drag targeting
 // =====================================================================
 
 console.log("\n=== CARD DRAG: Forward drag within same column [A*, B, C] drag A between B and C ===");
 {
-	cleanup();
-	// Cards: A(top=0), B(top=58), C(top=116). Dragging A.
-	// Drop between B and C: y = 100 (after B's mid=83, before C's mid=141)
-	// getDragAfterElement considers [B,C] (not A). B: 100-58-25=17>0 skip. C: 100-116-25=-41<0 → C.
-	const { container } = buildCardsDOM(["a", "b", "c"], "a");
-	const fixedIndex = simulateCardDrop(container, 100);
-	const brokenIndex = simulateCardDropBroken(container, 100);
-
-	// After removing A → [B, C], insert at fixedIndex
+	// A is at index 0, drop on bottom half of B (index 1)
+	// targetIndex = 1 + 1 = 2, sourceIndex(0) < 2 → targetIndex = 1
 	let data = makeBoardWithCards(["a", "b", "c"]);
-	const fixedResult = moveCard(data, "a", "p1", "col1", fixedIndex);
-	const brokenResult = moveCard(data, "a", "p1", "col1", brokenIndex);
-
+	const cards = data.projects[0].columns[0].cards;
+	const targetIndex = computeTargetIndex(1, false, "a", true, cards);
+	const result = moveCard(data, "a", "p1", "col1", targetIndex);
 	assertArrayEqual(
-		getCardTitles(fixedResult, "p1", "col1"),
+		getCardTitles(result, "p1", "col1"),
 		["B", "A", "C"],
-		`FIXED: A moved between B and C (index=${fixedIndex})`
+		`A moved between B and C (index=${targetIndex})`
 	);
-	console.log(`  INFO: Broken version would give index=${brokenIndex} → [${getCardTitles(brokenResult, "p1", "col1").join(", ")}]`);
-	assert(brokenIndex !== fixedIndex, "BROKEN index differs from FIXED index (proves bug existed)");
 }
 
 console.log("\n=== CARD DRAG: Forward drag [A*, B, C, D] drag A after C ===");
 {
-	cleanup();
-	// Cards: A(0), B(58), C(116), D(174). Dragging A.
-	// Drop after C, before D: y = 150 (after C's mid=141, before D's mid=199)
-	const { container } = buildCardsDOM(["a", "b", "c", "d"], "a");
-	const fixedIndex = simulateCardDrop(container, 150);
+	// Drop on bottom half of C (index 2)
+	// targetIndex = 2 + 1 = 3, sourceIndex(0) < 3 → targetIndex = 2
 	let data = makeBoardWithCards(["a", "b", "c", "d"]);
-	const result = moveCard(data, "a", "p1", "col1", fixedIndex);
+	const cards = data.projects[0].columns[0].cards;
+	const targetIndex = computeTargetIndex(2, false, "a", true, cards);
+	const result = moveCard(data, "a", "p1", "col1", targetIndex);
 	assertArrayEqual(
 		getCardTitles(result, "p1", "col1"),
 		["B", "C", "A", "D"],
-		`A moved after C (index=${fixedIndex})`
+		`A moved after C (index=${targetIndex})`
 	);
 }
 
 console.log("\n=== CARD DRAG: Forward drag [A, B*, C] drag B after C (to end) ===");
 {
-	cleanup();
-	// Cards: A(0), B(58), C(116). Dragging B.
-	// Drop after C: y = 200 (past C's mid=141)
-	// getDragAfterElement considers [A,C]. A: 200-0-25=175>0 skip. C: 200-116-25=59>0 skip. → null.
-	const { container } = buildCardsDOM(["a", "b", "c"], "b");
-	const fixedIndex = simulateCardDrop(container, 200);
+	// Drop on bottom half of C (index 2)
+	// targetIndex = 2 + 1 = 3, sourceIndex(1) < 3 → targetIndex = 2
 	let data = makeBoardWithCards(["a", "b", "c"]);
-	const result = moveCard(data, "b", "p1", "col1", fixedIndex);
+	const cards = data.projects[0].columns[0].cards;
+	const targetIndex = computeTargetIndex(2, false, "b", true, cards);
+	const result = moveCard(data, "b", "p1", "col1", targetIndex);
 	assertArrayEqual(
 		getCardTitles(result, "p1", "col1"),
 		["A", "C", "B"],
-		`B moved to end (index=${fixedIndex})`
+		`B moved to end (index=${targetIndex})`
 	);
 }
 
 console.log("\n=== CARD DRAG: Backward drag [A, B, C*] drag C before A ===");
 {
-	cleanup();
-	// Cards: A(0), B(58), C(116). Dragging C.
-	// Drop before A: y = 10 (before A's mid=25)
-	// getDragAfterElement considers [A,B]. A: 10-0-25=-15<0 → A. B: 10-58-25=-73<0 but -15>-73, keep A.
-	const { container } = buildCardsDOM(["a", "b", "c"], "c");
-	const fixedIndex = simulateCardDrop(container, 10);
+	// Drop on top half of A (index 0)
+	// targetIndex = 0, sourceIndex(2) not < 0 → stays 0
 	let data = makeBoardWithCards(["a", "b", "c"]);
-	const result = moveCard(data, "c", "p1", "col1", fixedIndex);
+	const cards = data.projects[0].columns[0].cards;
+	const targetIndex = computeTargetIndex(0, true, "c", true, cards);
+	const result = moveCard(data, "c", "p1", "col1", targetIndex);
 	assertArrayEqual(
 		getCardTitles(result, "p1", "col1"),
 		["C", "A", "B"],
-		`C moved to front (index=${fixedIndex})`
+		`C moved to front (index=${targetIndex})`
 	);
 }
 
 console.log("\n=== CARD DRAG: Backward drag [A, B, C*] drag C between A and B ===");
 {
-	cleanup();
-	// Cards: A(0), B(58), C(116). Dragging C.
-	// Drop between A and B: y = 40 (after A's mid=25, before B's mid=83)
-	const { container } = buildCardsDOM(["a", "b", "c"], "c");
-	const fixedIndex = simulateCardDrop(container, 40);
+	// Drop on bottom half of A (index 0) or top half of B (index 1)
+	// Using top half of B: targetIndex = 1, sourceIndex(2) not < 1 → stays 1
 	let data = makeBoardWithCards(["a", "b", "c"]);
-	const result = moveCard(data, "c", "p1", "col1", fixedIndex);
+	const cards = data.projects[0].columns[0].cards;
+	const targetIndex = computeTargetIndex(1, true, "c", true, cards);
+	const result = moveCard(data, "c", "p1", "col1", targetIndex);
 	assertArrayEqual(
 		getCardTitles(result, "p1", "col1"),
 		["A", "C", "B"],
-		`C moved between A and B (index=${fixedIndex})`
+		`C moved between A and B (index=${targetIndex})`
 	);
 }
 
 console.log("\n=== CARD DRAG: Same position [A*, B, C] drag A to stay at front ===");
 {
-	cleanup();
-	// Drop before B: y = 10 (before B's mid)
-	const { container } = buildCardsDOM(["a", "b", "c"], "a");
-	const fixedIndex = simulateCardDrop(container, 10);
+	// Drop on top half of A (index 0) — but A is the dragged card, so consider top half of B (index 1)
+	// Actually: drop on top half of B (index 1)
+	// targetIndex = 1, sourceIndex(0) < 1 → targetIndex = 0
 	let data = makeBoardWithCards(["a", "b", "c"]);
-	const result = moveCard(data, "a", "p1", "col1", fixedIndex);
+	const cards = data.projects[0].columns[0].cards;
+	const targetIndex = computeTargetIndex(1, true, "a", true, cards);
+	const result = moveCard(data, "a", "p1", "col1", targetIndex);
 	assertArrayEqual(
 		getCardTitles(result, "p1", "col1"),
 		["A", "B", "C"],
-		`A stays at front (index=${fixedIndex})`
+		`A stays at front (index=${targetIndex})`
 	);
 }
 
 console.log("\n=== CARD DRAG: Two cards only [A*, B] drag A after B ===");
 {
-	cleanup();
-	const { container } = buildCardsDOM(["a", "b"], "a");
-	const fixedIndex = simulateCardDrop(container, 200);
+	// Drop on bottom half of B (index 1)
+	// targetIndex = 1 + 1 = 2, sourceIndex(0) < 2 → targetIndex = 1
 	let data = makeBoardWithCards(["a", "b"]);
-	const result = moveCard(data, "a", "p1", "col1", fixedIndex);
+	const cards = data.projects[0].columns[0].cards;
+	const targetIndex = computeTargetIndex(1, false, "a", true, cards);
+	const result = moveCard(data, "a", "p1", "col1", targetIndex);
 	assertArrayEqual(
 		getCardTitles(result, "p1", "col1"),
 		["B", "A"],
-		`A moved after B (index=${fixedIndex})`
+		`A moved after B (index=${targetIndex})`
 	);
 }
 
 console.log("\n=== CARD DRAG: Middle card forward [A, B*, C, D] drag B after D ===");
 {
-	cleanup();
-	const { container } = buildCardsDOM(["a", "b", "c", "d"], "b");
-	const fixedIndex = simulateCardDrop(container, 250);
+	// Drop on bottom half of D (index 3)
+	// targetIndex = 3 + 1 = 4, sourceIndex(1) < 4 → targetIndex = 3
 	let data = makeBoardWithCards(["a", "b", "c", "d"]);
-	const result = moveCard(data, "b", "p1", "col1", fixedIndex);
+	const cards = data.projects[0].columns[0].cards;
+	const targetIndex = computeTargetIndex(3, false, "b", true, cards);
+	const result = moveCard(data, "b", "p1", "col1", targetIndex);
 	assertArrayEqual(
 		getCardTitles(result, "p1", "col1"),
 		["A", "C", "D", "B"],
-		`B moved to end (index=${fixedIndex})`
+		`B moved to end (index=${targetIndex})`
+	);
+}
+
+console.log("\n=== CARD DRAG: Same-column no-adjustment when moving backward ===");
+{
+	// [A, B, C*] drop C on top half of A (index 0)
+	// targetIndex = 0, sourceIndex(2) not < 0 → no adjustment → 0
+	let data = makeBoardWithCards(["a", "b", "c"]);
+	const cards = data.projects[0].columns[0].cards;
+	const targetIndex = computeTargetIndex(0, true, "c", true, cards);
+	assert(targetIndex === 0, "No adjustment for backward move");
+	const result = moveCard(data, "c", "p1", "col1", targetIndex);
+	assertArrayEqual(
+		getCardTitles(result, "p1", "col1"),
+		["C", "A", "B"],
+		`C at front (index=${targetIndex})`
 	);
 }
 
@@ -334,7 +274,9 @@ console.log("\n=== CARD MOVE: Cross-column A→B ===");
 			],
 		}],
 	};
-	const result = moveCard(data, "c1", "p1", "col2", 0);
+	// Cross-column: no same-column adjustment
+	const targetIndex = computeTargetIndex(0, true, "c1", false, []);
+	const result = moveCard(data, "c1", "p1", "col2", targetIndex);
 	assertArrayEqual(getCardTitles(result, "p1", "col1"), ["Task2"], "Source column lost card");
 	assertArrayEqual(getCardTitles(result, "p1", "col2"), ["Task1", "Task3"], "Target column gained card at index 0");
 }
@@ -352,7 +294,9 @@ console.log("\n=== CARD MOVE: Cross-column insert at end ===");
 			],
 		}],
 	};
-	const result = moveCard(data, "c1", "p1", "col2", 2);
+	// Drop on bottom half of last card (index 1) in target column → targetIndex = 2
+	const targetIndex = computeTargetIndex(1, false, "c1", false, []);
+	const result = moveCard(data, "c1", "p1", "col2", targetIndex);
 	assertArrayEqual(getCardTitles(result, "p1", "col1"), [], "Source column empty");
 	assertArrayEqual(getCardTitles(result, "p1", "col2"), ["Task2", "Task3", "Task1"], "Card appended at end");
 }
