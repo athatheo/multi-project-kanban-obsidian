@@ -5,7 +5,10 @@ import {
 	addCard, removeCard, updateCard, moveCard,
 	isDoneColumn, DONE_COLUMN_NAME,
 } from "./dataManager";
-import { setupCardDrag, setupColumnDrag, setupColumnDropZone, isColumnDragActive, resetColumnDragState } from "./dragDrop";
+import {
+	setupCardDrag, setupColumnDrag, isColumnDragActive, resetColumnDragState,
+	setupCardDropTarget, setupContainerDrop, setupColumnDropTarget, setupColumnsContainerDrop,
+} from "./dragDrop";
 
 export function renderBoard(container: HTMLElement, callbacks: RenderCallbacks) {
 	const data = callbacks.getData();
@@ -81,11 +84,11 @@ function renderProject(boardEl: HTMLElement, project: Project, callbacks: Render
 	if (!project.collapsed) {
 		const columnsEl = projectEl.createDiv({ cls: "kanban-columns" });
 
-		for (const column of project.columns) {
-			renderColumn(columnsEl, project, column, callbacks);
+		for (let i = 0; i < project.columns.length; i++) {
+			renderColumn(columnsEl, project, project.columns[i], i, callbacks);
 		}
 
-		setupColumnDropZone(projectEl, columnsEl, project.id, callbacks);
+		setupColumnsContainerDrop(columnsEl, project.id, callbacks);
 
 		// Add Column button
 		const addColBtn = columnsEl.createDiv({ cls: "kanban-add-column" });
@@ -103,7 +106,7 @@ function renderProject(boardEl: HTMLElement, project: Project, callbacks: Render
 	}
 }
 
-function renderColumn(columnsEl: HTMLElement, project: Project, column: Column, callbacks: RenderCallbacks) {
+function renderColumn(columnsEl: HTMLElement, project: Project, column: Column, columnIndex: number, callbacks: RenderCallbacks) {
 	const data = callbacks.getData();
 	const isDone = isDoneColumn(column);
 	const columnEl = columnsEl.createDiv({ cls: "kanban-column" });
@@ -150,12 +153,12 @@ function renderColumn(columnsEl: HTMLElement, project: Project, column: Column, 
 	cardsEl.setAttribute("data-column-id", column.id);
 	cardsEl.setAttribute("data-project-id", project.id);
 
-	for (const card of column.cards) {
-		renderCard(cardsEl, project, column, card, callbacks);
+	for (let i = 0; i < column.cards.length; i++) {
+		renderCard(cardsEl, project, column, column.cards[i], i, callbacks);
 	}
 
-	// Setup drop zone for cards
-	setupCardDropZone(cardsEl, project.id, column.id, callbacks);
+	// Setup drop targets
+	setupContainerDrop(cardsEl, column.id, project.id, callbacks);
 
 	// Add card button
 	const addCardBtn = columnEl.createDiv({ cls: "kanban-add-card" });
